@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="IRON LOG">
+<title>IRON LOG</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: #0F0F14; font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; }
+  input, select, textarea, button { font-family: inherit; }
+  /* Prevent iOS bounce */
+  html, body { height: 100%; overflow-x: hidden; }
+  #root { min-height: 100vh; }
+  /* Native-feel scrolling */
+  * { -webkit-overflow-scrolling: touch; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- React + Babel via CDN -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel">
+const { useState, useCallback } = React;
+
+
+const PC={chest:"#FF8FA3",back:"#80BCFF",legs:"#6EE6A0",shoulders:"#FFD080",arms:"#C49EFF",abs:"#FF9E6E",full:"#80E8E8",cardio:"#FFB3D9"};
+const PN={chest:"胸",back:"背中",legs:"脚",shoulders:"肩",arms:"腕",abs:"腹筋",full:"全身",cardio:"有酸素"};
+const ST={great:{e:"🌟",l:"完璧",c:"#44CC88"},partner:{e:"🤝",l:"合同",c:"#80BCFF"},meh:{e:"💧",l:"まあまあ",c:"#F09030"},bad:{e:"😤",l:"全然ダメ",c:"#F05555"}};
+
+// Muscle groups activated per exercise
+var MMAP = {"バーベルベンチプレス":["pec","delt_front","tricep"],"インクラインダンベルプレス":["pec","delt_front"],"ダンベルフライ":["pec"],"ケーブルクロスオーバー":["pec"],"ディップス（胸）":["pec","tricep","delt_front"],"プッシュアップ":["pec","delt_front","tricep"],"デッドリフト":["lats","trap","ham","glute","core"],"ラットプルダウン":["lats","bicep","trap"],"バーベルベントオーバーロウ":["lats","trap","delt_rear","bicep"],"チンアップ（逆手懸垂）":["lats","bicep"],"シーテッドケーブルロウ":["lats","trap","bicep"],"ワンアームダンベルロウ":["lats","delt_rear"],"バーベルスクワット":["quad","glute","ham","core"],"ヒップスラスト":["glute","ham"],"ルーマニアンデッドリフト":["ham","glute"],"レッグプレス":["quad","glute","ham"],"ブルガリアンスクワット":["quad","glute","ham"],"レッグカール":["ham","calf"],"レッグエクステンション":["quad"],"カーフレイズ":["calf"],"グルートブリッジ":["glute","ham"],"バーベルショルダープレス":["delt_front","delt_side","tricep","trap"],"サイドレイズ":["delt_side","trap"],"リアレイズ":["delt_rear","trap"],"ダンベルショルダープレス":["delt_front","delt_side","tricep"],"アーノルドプレス":["delt_front","delt_side","delt_rear","tricep"],"フロントレイズ":["delt_front"],"バーベルカール":["bicep","forearm"],"トライセプスプレスダウン":["tricep"],"スカルクラッシャー":["tricep"],"ハンマーカール":["bicep","forearm"],"インクラインダンベルカール":["bicep"],"ディップス（三頭）":["tricep","pec"],"クランチ":["abs_upper"],"プランク":["abs_upper","abs_lower","core"],"アブローラー":["abs_upper","abs_lower","lats"],"レッグレイズ":["abs_lower","hip_flex"],"ロシアンツイスト":["oblique","abs_upper"],"サイドプランク":["oblique","core"],"ケトルベルスイング":["glute","ham","core","trap"],"バーピー":["quad","pec","tricep","core"],"クリーン":["quad","glute","trap","lats"],"ランニング（有酸素）":["quad","calf","ham"],"インターバル走（HIIT）":["quad","calf","ham","core"],"エアロバイク":["quad","glute","calf"],"ローイングマシン":["lats","quad","core"],"縄跳び":["calf"],"ウォーキング（回復）":["quad","calf"]};
+
+function getMuscSVG(name, color) {
+  var ms = MMAP[name] || [];
+  var S = "#1E1E2E";
+  function h(p) { return ms.indexOf(p) >= 0 ? color : "#2A2A3A"; }
+  function o(p) { return ms.indexOf(p) >= 0 ? ".9" : ".18"; }
+  return '<svg viewBox="0 0 80 140" fill="none" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">'
+    // Head & neck
+    + '<ellipse cx="40" cy="9" rx="7" ry="8" fill="'+S+'" stroke="#3A3A4E" stroke-width=".8"/>'
+    + '<rect x="37" y="16" width="6" height="5" rx="2" fill="'+S+'"/>'
+    // Torso
+    + '<path d="M27,21 Q19,24 17,46 Q16,58 20,64 L60,64 Q64,58 63,46 Q61,24 53,21 Z" fill="'+S+'" stroke="#3A3A4E" stroke-width=".6"/>'
+    + '<line x1="40" y1="21" x2="40" y2="56" stroke="#3A3A4E" stroke-width=".5" opacity=".4"/>'
+    // CHEST
+    + '<ellipse cx="32" cy="32" rx="9" ry="7" fill="'+h("pec")+'" opacity="'+o("pec")+'" transform="rotate(-8 32 32)"/>'
+    + '<ellipse cx="48" cy="32" rx="9" ry="7" fill="'+h("pec")+'" opacity="'+o("pec")+'" transform="rotate(8 48 32)"/>'
+    // ABS
+    + '<rect x="36" y="46" width="4" height="5" rx="1.5" fill="'+h("abs_upper")+'" opacity="'+o("abs_upper")+'"/>'
+    + '<rect x="41" y="46" width="4" height="5" rx="1.5" fill="'+h("abs_upper")+'" opacity="'+o("abs_upper")+'"/>'
+    + '<rect x="36" y="52" width="4" height="5" rx="1.5" fill="'+h("abs_lower")+'" opacity="'+o("abs_lower")+'"/>'
+    + '<rect x="41" y="52" width="4" height="5" rx="1.5" fill="'+h("abs_lower")+'" opacity="'+o("abs_lower")+'"/>'
+    + '<rect x="36" y="58" width="4" height="4" rx="1.5" fill="'+h("abs_upper")+'" opacity="'+o("abs_upper")+'"/>'
+    + '<rect x="41" y="58" width="4" height="4" rx="1.5" fill="'+h("abs_upper")+'" opacity="'+o("abs_upper")+'"/>'
+    // OBLIQUES
+    + '<path d="M19,42 Q20,52 22,63 L26,59 Q24,50 24,40Z" fill="'+h("oblique")+'" opacity="'+o("oblique")+'"/>'
+    + '<path d="M61,42 Q60,52 58,63 L54,59 Q56,50 56,40Z" fill="'+h("oblique")+'" opacity="'+o("oblique")+'"/>'
+    // TRAPS
+    + '<path d="M34,21 Q40,17 46,21 Q43,26 40,26 Q37,26 34,21Z" fill="'+h("trap")+'" opacity="'+o("trap")+'"/>'
+    // DELTS front/side/rear
+    + '<ellipse cx="18" cy="28" rx="7" ry="6" fill="'+h("delt_front")+'" opacity="'+o("delt_front")+'" transform="rotate(-20 18 28)"/>'
+    + '<ellipse cx="62" cy="28" rx="7" ry="6" fill="'+h("delt_front")+'" opacity="'+o("delt_front")+'" transform="rotate(20 62 28)"/>'
+    + '<ellipse cx="14" cy="32" rx="5" ry="5" fill="'+h("delt_side")+'" opacity="'+o("delt_side")+'" transform="rotate(10 14 32)"/>'
+    + '<ellipse cx="66" cy="32" rx="5" ry="5" fill="'+h("delt_side")+'" opacity="'+o("delt_side")+'" transform="rotate(-10 66 32)"/>'
+    + '<ellipse cx="14" cy="30" rx="4" ry="4" fill="'+h("delt_rear")+'" opacity="'+o("delt_rear")+'" transform="rotate(15 14 30)"/>'
+    + '<ellipse cx="66" cy="30" rx="4" ry="4" fill="'+h("delt_rear")+'" opacity="'+o("delt_rear")+'" transform="rotate(-15 66 30)"/>'
+    // LATS
+    + '<path d="M17,26 Q12,40 16,60 Q20,64 22,60 Q19,46 20,30Z" fill="'+h("lats")+'" opacity="'+o("lats")+'"/>'
+    + '<path d="M63,26 Q68,40 64,60 Q60,64 58,60 Q61,46 60,30Z" fill="'+h("lats")+'" opacity="'+o("lats")+'"/>'
+    // CORE
+    + '<ellipse cx="40" cy="57" rx="6" ry="4" fill="'+h("core")+'" opacity="'+o("core")+'"/>'
+    // LEFT ARM
+    + '<path d="M16,26 Q8,32 7,48 Q7,58 11,66" fill="'+S+'" stroke="#3A3A4E" stroke-width=".7"/>'
+    + '<ellipse cx="10" cy="44" rx="4" ry="8" fill="'+h("bicep")+'" opacity="'+o("bicep")+'" transform="rotate(-5 10 44)"/>'
+    + '<ellipse cx="8" cy="45" rx="3" ry="7" fill="'+h("tricep")+'" opacity="'+o("tricep")+'" transform="rotate(-8 8 45)"/>'
+    + '<ellipse cx="9" cy="63" rx="3" ry="5" fill="'+h("forearm")+'" opacity="'+o("forearm")+'"/>'
+    + '<ellipse cx="10" cy="71" rx="3" ry="3.5" fill="'+S+'" stroke="#3A3A4E" stroke-width=".5"/>'
+    // RIGHT ARM
+    + '<path d="M64,26 Q72,32 73,48 Q73,58 69,66" fill="'+S+'" stroke="#3A3A4E" stroke-width=".7"/>'
+    + '<ellipse cx="70" cy="44" rx="4" ry="8" fill="'+h("bicep")+'" opacity="'+o("bicep")+'" transform="rotate(5 70 44)"/>'
+    + '<ellipse cx="72" cy="45" rx="3" ry="7" fill="'+h("tricep")+'" opacity="'+o("tricep")+'" transform="rotate(8 72 45)"/>'
+    + '<ellipse cx="71" cy="63" rx="3" ry="5" fill="'+h("forearm")+'" opacity="'+o("forearm")+'"/>'
+    + '<ellipse cx="70" cy="71" rx="3" ry="3.5" fill="'+S+'" stroke="#3A3A4E" stroke-width=".5"/>'
+    // HIPS / GLUTES
+    + '<path d="M20,64 Q20,74 24,78 Q34,84 40,84 Q46,84 56,78 Q60,74 60,64Z" fill="'+S+'" stroke="#3A3A4E" stroke-width=".6"/>'
+    + '<ellipse cx="30" cy="73" rx="10" ry="7" fill="'+h("glute")+'" opacity="'+o("glute")+'"/>'
+    + '<ellipse cx="50" cy="73" rx="10" ry="7" fill="'+h("glute")+'" opacity="'+o("glute")+'"/>'
+    + '<ellipse cx="35" cy="67" rx="5" ry="4" fill="'+h("hip_flex")+'" opacity="'+o("hip_flex")+'"/>'
+    + '<ellipse cx="45" cy="67" rx="5" ry="4" fill="'+h("hip_flex")+'" opacity="'+o("hip_flex")+'"/>'
+    // LEFT LEG
+    + '<path d="M24,78 Q20,88 20,106 Q20,116 24,122" fill="'+S+'" stroke="#3A3A4E" stroke-width=".7"/>'
+    + '<ellipse cx="25" cy="95" rx="6" ry="13" fill="'+h("quad")+'" opacity="'+o("quad")+'" transform="rotate(4 25 95)"/>'
+    + '<ellipse cx="22" cy="96" rx="4" ry="12" fill="'+h("ham")+'" opacity="'+o("ham")+'" transform="rotate(2 22 96)"/>'
+    + '<circle cx="23" cy="108" r="4" fill="'+S+'" stroke="#3A3A4E" stroke-width=".6"/>'
+    + '<ellipse cx="24" cy="118" rx="4" ry="7" fill="'+h("calf")+'" opacity="'+o("calf")+'"/>'
+    + '<ellipse cx="23" cy="126" rx="5" ry="2.5" fill="'+S+'" stroke="#3A3A4E" stroke-width=".5"/>'
+    // RIGHT LEG
+    + '<path d="M56,78 Q60,88 60,106 Q60,116 56,122" fill="'+S+'" stroke="#3A3A4E" stroke-width=".7"/>'
+    + '<ellipse cx="55" cy="95" rx="6" ry="13" fill="'+h("quad")+'" opacity="'+o("quad")+'" transform="rotate(-4 55 95)"/>'
+    + '<ellipse cx="58" cy="96" rx="4" ry="12" fill="'+h("ham")+'" opacity="'+o("ham")+'" transform="rotate(-2 58 96)"/>'
+    + '<circle cx="57" cy="108" r="4" fill="'+S+'" stroke="#3A3A4E" stroke-width=".6"/>'
+    + '<ellipse cx="56" cy="118" rx="4" ry="7" fill="'+h("calf")+'" opacity="'+o("calf")+'"/>'
+    + '<ellipse cx="57" cy="126" rx="5" ry="2.5" fill="'+S+'" stroke="#3A3A4E" stroke-width=".5"/>'
+    + '</svg>';
+}
+
+const DB={
+  chest:[
+    {n:"バーベルベンチプレス",p:"大胸筋（中部）",s:"三角筋前部・上腕三頭筋",t:"肩甲骨をベンチに押し付けバーを乳頭線へ。手幅は肩幅×1.5。"},
+    {n:"インクラインダンベルプレス",p:"大胸筋（上部）",s:"三角筋前部",t:"30〜45°で上部を強調。ニュートラルグリップで肩を守る。"},
+    {n:"ダンベルフライ",p:"大胸筋（中部）",s:"前鋸筋",t:"肘を軽く曲げ弧を描くように開く。肩より低い位置でストレッチ。"},
+    {n:"ケーブルクロスオーバー",p:"大胸筋（内側）",s:"前鋸筋",t:"縦に交差させ最大収縮。高さで狙いが変わる。"},
+    {n:"ディップス（胸）",p:"大胸筋（下部）",s:"上腕三頭筋",t:"体を前傾させ胸狙いに。肘を広げ気味にすると効く。"},
+    {n:"プッシュアップ",p:"大胸筋",s:"三角筋前部・上腕三頭筋",t:"体を一直線に保つ。手幅で狙いを変えられる。"},
+  ],
+  back:[
+    {n:"デッドリフト",p:"脊柱起立筋・広背筋",s:"ハムストリング・臀筋",t:"背中を中立位に保ちバーを体に沿わせて引く。股関節主導。"},
+    {n:"ラットプルダウン",p:"広背筋",s:"大円筋・上腕二頭筋",t:"肘を脇腹に向けて引き下ろす。体を少し後傾させ胸を張る。"},
+    {n:"バーベルベントオーバーロウ",p:"広背筋・僧帽筋中部",s:"後部三角筋",t:"45°前傾でバーを腹部へ。肘を脇に沿わせる。"},
+    {n:"チンアップ（逆手懸垂）",p:"広背筋",s:"上腕二頭筋・大円筋",t:"逆手で上腕二頭筋の補助が増す。肩甲骨を落として始動。"},
+    {n:"シーテッドケーブルロウ",p:"広背筋・菱形筋",s:"上腕二頭筋",t:"引き終わりに肩甲骨を寄せて1秒キープ。"},
+    {n:"ワンアームダンベルロウ",p:"広背筋",s:"大円筋・後部三角筋",t:"肘を後方に引き上げる意識。肩を回さず背中で引く。"},
+  ],
+  legs:[
+    {n:"バーベルスクワット",p:"大腿四頭筋・臀筋",s:"ハムストリング・脊柱起立筋",t:"膝をつま先と同方向に、骨盤底まで深くしゃがむ。"},
+    {n:"ヒップスラスト",p:"臀筋（大・中）",s:"ハムストリング",t:"バーを股関節に置き押し上げる。上で1秒絞る。"},
+    {n:"ルーマニアンデッドリフト",p:"ハムストリング",s:"臀筋・脊柱起立筋",t:"膝を軽く曲げたまま股関節から前傾。ハムのストレッチで折り返す。"},
+    {n:"レッグプレス",p:"大腿四頭筋・臀筋",s:"ハムストリング",t:"足の位置を高くすると臀筋・ハム、低くすると大腿四頭筋を強調。"},
+    {n:"ブルガリアンスクワット",p:"大腿四頭筋・臀筋",s:"ハムストリング",t:"後ろ足をベンチに乗せ前足だけで沈む。"},
+    {n:"レッグカール",p:"ハムストリング",s:"腓腹筋",t:"骨盤を浮かさず大腿二頭筋で引く意識を持つ。"},
+    {n:"レッグエクステンション",p:"大腿四頭筋",s:"—",t:"ゆっくり降ろすエキセントリックを重視する。"},
+    {n:"カーフレイズ",p:"腓腹筋",s:"ヒラメ筋",t:"爪先立ちで最大収縮、踵を下げて最大ストレッチ。"},
+    {n:"グルートブリッジ",p:"臀筋",s:"ハムストリング",t:"床に仰向けで膝を立て腰を引き上げる。"},
+  ],
+  shoulders:[
+    {n:"バーベルショルダープレス",p:"三角筋（前・中部）",s:"上腕三頭筋・僧帽筋",t:"バーを顎の前から押し上げる。腰を反らせず体幹を固める。"},
+    {n:"サイドレイズ",p:"三角筋（中部）",s:"僧帽筋上部",t:"小指側を少し上に向けて持ち上げる。肩の高さまで。"},
+    {n:"リアレイズ",p:"三角筋（後部）",s:"菱形筋・僧帽筋中部",t:"90°前傾し肘を横に開く。背中を丸めない。"},
+    {n:"ダンベルショルダープレス",p:"三角筋（前・中部）",s:"上腕三頭筋",t:"バーより可動域が広い。ニュートラルグリップで肩を守る。"},
+    {n:"アーノルドプレス",p:"三角筋（全頭）",s:"上腕三頭筋",t:"下では手のひらが自分向き、上では外向きに回旋。"},
+    {n:"フロントレイズ",p:"三角筋（前部）",s:"上腕二頭筋長頭",t:"ダンベルを肩の高さまで前方へ。反動を使わずゆっくりと。"},
+  ],
+  arms:[
+    {n:"バーベルカール",p:"上腕二頭筋",s:"上腕筋・腕橈骨筋",t:"肘を固定し前腕だけで巻き上げる。肩が前に出ないよう。"},
+    {n:"トライセプスプレスダウン",p:"上腕三頭筋（外側頭）",s:"—",t:"肘を体側に固定し前腕だけを伸ばす。"},
+    {n:"スカルクラッシャー",p:"上腕三頭筋（長頭）",s:"上腕三頭筋（内・外側頭）",t:"肘の真上からバーをこめかみへ。肘を固定したまま。"},
+    {n:"ハンマーカール",p:"上腕筋・腕橈骨筋",s:"上腕二頭筋",t:"ニュートラルグリップで行う。前腕の厚みを作るのに有効。"},
+    {n:"インクラインダンベルカール",p:"上腕二頭筋（長頭）",s:"上腕筋",t:"60°ベンチで腕を後ろに引いた状態からカール。長頭を強烈にストレッチ。"},
+    {n:"ディップス（三頭）",p:"上腕三頭筋",s:"大胸筋下部",t:"体をまっすぐ垂直に保ち三頭を孤立。肘の幅を狭くする。"},
+  ],
+  abs:[
+    {n:"クランチ",p:"腹直筋（上部）",s:"—",t:"腰を浮かせず肩甲骨を上げる。首ではなく腹筋で引き起こす。"},
+    {n:"プランク",p:"腹横筋・腹直筋",s:"脊柱起立筋・臀筋",t:"頭から踵まで一直線。臀部が上がらないよう体幹全体で支える。"},
+    {n:"アブローラー",p:"腹直筋・腹横筋",s:"広背筋・三角筋前部",t:"膝つきから始め腰が落ちない範囲で伸ばす。体幹の王者種目。"},
+    {n:"レッグレイズ",p:"腹直筋（下部）・腸腰筋",s:"—",t:"脚を完全に下げず腰が反る直前で止める。ゆっくりと。"},
+    {n:"ロシアンツイスト",p:"腹斜筋",s:"腹直筋",t:"足を浮かせてダンベルを持ち、ゆっくり大きく回転。"},
+    {n:"サイドプランク",p:"腹斜筋（外・内）",s:"腹横筋",t:"体が前後に倒れないよう横一直線をキープ。"},
+  ],
+  full:[
+    {n:"ケトルベルスイング",p:"臀筋・ハムストリング",s:"体幹・肩",t:"股関節を爆発的に伸展してスイング。腕で振り上げない。"},
+    {n:"バーピー",p:"全身",s:"心肺機能",t:"スクワット→プランク→プッシュアップ→ジャンプの複合動作。"},
+    {n:"クリーン",p:"全身（爆発力）",s:"—",t:"バーを股関節から爆発的に引き上げフロントラックに収める。"},
+  ],
+  cardio:[
+    {n:"ランニング（有酸素）",p:"腓腹筋・大腿四頭筋",s:"心肺機能",t:"会話できるペース（65〜75%HRmax）で20〜60分継続。"},
+    {n:"インターバル走（HIIT）",p:"全身",s:"心肺機能",t:"20秒全力→10秒休憩×8セット（タバタ式）。脂肪燃焼効率◎。"},
+    {n:"エアロバイク",p:"大腿四頭筋・臀筋",s:"心肺機能",t:"80〜90rpmを目安に。膝が少し曲がる程度に座面を調整。"},
+    {n:"ローイングマシン",p:"背中・脚・体幹",s:"心肺機能",t:"脚→体幹→腕の順番で引く。腕だけで引かない。"},
+    {n:"縄跳び",p:"腓腹筋・協調性",s:"心肺機能・肩",t:"つま先着地でふくらはぎに集中。"},
+    {n:"ウォーキング（回復）",p:"下半身",s:"心肺機能",t:"回復日のアクティブリカバリーに。速歩で代謝を落とさない。"},
+  ],
+};
+
+function toDS(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+
+function useLS(key,init){
+  var pair=useState(function(){try{var s=localStorage.getItem(key);return s?JSON.parse(s):init;}catch(e){return init;}});
+  var v=pair[0],setV=pair[1];
+  var save=useCallback(function(x){setV(x);try{localStorage.setItem(key,JSON.stringify(x));}catch(e){};},[key]);
+  return[v,save];
+}
+
+var mkSet=function(){return{w:"",r:"",rpe:"",done:false};};
+var mkEx=function(id,part){return{id:id,name:(DB[part]||DB.chest)[0].n,custom:false,sets:[mkSet(),mkSet(),mkSet()]};};
+
+function App(){
+  var s1=useState("cal"); var tab=s1[0],setTab=s1[1];
+  var s2=useLS("il-w7",{}); var workouts=s2[0],setWorkouts=s2[1];
+  var s3=useLS("il-ib7",[]); var inbody=s3[0],setInbody=s3[1];
+  var s4=useState(new Date()); var month=s4[0],setMonth=s4[1];
+  var s5=useState(toDS(new Date())); var logDate=s5[0],setLogDate=s5[1];
+  var s6=useState("chest"); var logPart=s6[0],setLogPart=s6[1];
+  var s7=useState(null); var logStatus=s7[0],setLogStatus=s7[1];
+  var s8=useState(""); var logNotes=s8[0],setLogNotes=s8[1];
+  var s9=useState([mkEx(1,"chest")]); var exs=s9[0],setExs=s9[1];
+  var s10=useState(2); var exCtr=s10[0],setExCtr=s10[1];
+  var s11=useState(""); var toast=s11[0],setToast=s11[1];
+  var s12=useState({date:toDS(new Date()),weight:"",muscle:"",fat:"",fatpct:"",bmi:"",bmr:"",vis:""}); var ibF=s12[0],setIbF=s12[1];
+
+  var showToast=function(m){setToast(m);setTimeout(function(){setToast("");},2400);};
+  var yr=month.getFullYear(),mo=month.getMonth();
+  var sd=0,ss=0;
+  Object.keys(workouts).forEach(function(ds){
+    var w=workouts[ds]; var d=new Date(ds+"T00:00:00");
+    if(d.getFullYear()===yr&&d.getMonth()===mo&&w.exercises&&w.exercises.length){sd++;w.exercises.forEach(function(e){ss+=e.sets.length;});}
+  });
+
+  var goLog=function(ds){
+    setLogDate(ds); var w=workouts[ds];
+    if(w){setLogPart(w.part||"chest");setLogStatus(w.status||null);setLogNotes(w.notes||"");setExs(w.exercises&&w.exercises.length?w.exercises.map(function(e,i){return Object.assign({},e,{id:i+1});}): [mkEx(1,w.part||"chest")]);setExCtr((w.exercises&&w.exercises.length||0)+1);}
+    else{setLogPart("chest");setLogStatus(null);setLogNotes("");setExs([mkEx(1,"chest")]);setExCtr(2);}
+    setTab("log");
+  };
+
+  var calCells=function(){
+    var fd=new Date(yr,mo,1).getDay(),dim=new Date(yr,mo+1,0).getDate(),pd=new Date(yr,mo,0).getDate();
+    var today=toDS(new Date()),cells=[];
+    for(var i=0;i<fd;i++)cells.push({key:"p"+i,day:pd-fd+1+i,other:true});
+    for(var d=1;d<=dim;d++){var ds=yr+"-"+String(mo+1).padStart(2,"0")+"-"+String(d).padStart(2,"0");cells.push({key:ds,day:d,ds:ds,today:ds===today,w:workouts[ds]});}
+    var rem=cells.length%7===0?0:7-cells.length%7;
+    for(var j=1;j<=rem;j++)cells.push({key:"n"+j,day:j,other:true});
+    return cells;
+  };
+
+  var updEx=function(id,f,v){setExs(function(p){return p.map(function(e){return e.id===id?Object.assign({},e,{[f]:v}):e;});});};
+  var updSet=function(id,si,f,v){setExs(function(p){return p.map(function(e){return e.id===id?Object.assign({},e,{sets:e.sets.map(function(s,i){return i===si?Object.assign({},s,{[f]:v}):s;})}):e;});});};
+  var handlePart=function(p){setLogPart(p);var list=DB[p]||[];setExs(function(prev){return prev.map(function(e){if(e.custom)return e;return list.find(function(x){return x.n===e.name;})?e:Object.assign({},e,{name:list[0]?list[0].n:e.name});});});};
+  var doSave=function(){if(!logDate){showToast("日付を選択してください");return;}var nw=Object.assign({},workouts,{[logDate]:{date:logDate,part:logPart,status:logStatus,notes:logNotes,exercises:exs,savedAt:new Date().toISOString()}});setWorkouts(nw);showToast("✓ 保存しました");};
+
+  var lime="#C8F020",bg="#0F0F14",bg2="#16161E",bg3="#1E1E2A",steel="#252532",muted="#666678",off="#AAAABC";
+  var fi={background:bg3,border:"1px solid #2E2E3E",color:"#F2F2F2",padding:"8px 10px",borderRadius:4,fontSize:14,width:"100%",outline:"none",boxSizing:"border-box"};
+
+  return(
+    <div style={{background:bg,minHeight:"100vh",color:"#F2F2F2",fontSize:14}}>
+      <div style={{position:"sticky",top:0,zIndex:100,height:50,background:"rgba(15,15,20,.96)",borderBottom:"1px solid #2E2E3E",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 12px"}}>
+        <div style={{fontSize:18,letterSpacing:3,color:lime,fontWeight:"bold"}}>IRON LOG</div>
+        <div style={{display:"flex",gap:2}}>
+          {[["cal","カレンダー"],["log","記録"],["ib","Inbody"],["hist","履歴"]].map(function(item){
+            var id=item[0],lbl=item[1];
+            return <button key={id} onClick={function(){setTab(id);}} style={{padding:"5px 9px",borderRadius:4,border:"none",cursor:"pointer",fontSize:11,fontWeight:600,background:tab===id?lime:"transparent",color:tab===id?"#0F0F14":muted}}>{lbl}</button>;
+          })}
+        </div>
+      </div>
+
+      <div style={{paddingBottom:40}}>
+
+        {tab==="cal" && (
+          <div>
+            <div style={{padding:"14px 12px 10px",borderBottom:"1px solid #2E2E3E",display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:12}}>
+              <div style={{fontSize:"clamp(28px,7vw,48px)",lineHeight:0.9,fontWeight:"bold"}}>TRAIN<br/><span style={{color:lime}}>EVERY<br/>DAY.</span></div>
+              <div style={{display:"flex",gap:7,flexShrink:0}}>
+                {[["日間",sd],["セット",ss]].map(function(x){return <div key={x[0]} style={{background:bg2,border:"1px solid #2E2E3E",borderRadius:5,padding:"7px 10px",textAlign:"center",minWidth:46}}><div style={{fontSize:22,color:lime,fontWeight:"bold",lineHeight:1}}>{x[1]}</div><div style={{fontSize:9,color:muted,marginTop:2}}>{x[0]}</div></div>;})}
+              </div>
+            </div>
+            <div style={{padding:"6px 12px",background:bg2,borderBottom:"1px solid #2E2E3E",display:"flex",flexWrap:"wrap",gap:7,alignItems:"center"}}>
+              <span style={{fontSize:10,fontWeight:700,color:muted}}>部位</span>
+              {Object.keys(PC).slice(0,6).map(function(k){return <div key={k} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:off}}><div style={{width:8,height:8,borderRadius:2,background:PC[k]}}/>{PN[k]}</div>;})}
+              <div style={{width:1,height:10,background:"#2E2E3E"}}/>
+              {Object.keys(ST).map(function(k){return <div key={k} style={{fontSize:11,color:off}}>{ST[k].e}{ST[k].l}</div>;})}
+            </div>
+            <div style={{background:"#FAFAFA",padding:"12px"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <button onClick={function(){setMonth(new Date(yr,mo-1,1));}} style={{background:"#fff",border:"1.5px solid #E0E0E8",color:"#1A1A2A",width:30,height:30,borderRadius:"50%",cursor:"pointer",fontSize:16}}>‹</button>
+                <div style={{fontWeight:"bold",fontSize:18,color:"#1A1A2A"}}>{month.toLocaleDateString("ja-JP",{year:"numeric",month:"long"})}</div>
+                <button onClick={function(){setMonth(new Date(yr,mo+1,1));}} style={{background:"#fff",border:"1.5px solid #E0E0E8",color:"#1A1A2A",width:30,height:30,borderRadius:"50%",cursor:"pointer",fontSize:16}}>›</button>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
+                {["日","月","火","水","木","金","土"].map(function(d){return <div key={d} style={{textAlign:"center",padding:"4px 2px",fontSize:10,fontWeight:700,color:"#AAAABC"}}>{d}</div>;})}
+                {calCells().map(function(cell){
+                  if(cell.other)return <div key={cell.key} style={{aspectRatio:"1",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#1A1A2A",opacity:.22}}>{cell.day}</div>;
+                  var trained=!!(cell.w&&cell.w.exercises&&cell.w.exercises.length);
+                  var col=trained?(PC[cell.w.part]||lime):null;
+                  var emoji=cell.w&&cell.w.status&&ST[cell.w.status]?ST[cell.w.status].e:"";
+                  return <div key={cell.key} onClick={function(){goLog(cell.ds);}} style={{aspectRatio:"1",borderRadius:6,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1,cursor:"pointer",background:col||"#fff",border:cell.today?"2px solid #1A1A2A":"1.5px solid #E0E0E8",userSelect:"none"}}><span style={{fontSize:11,fontWeight:cell.today?800:600,color:col?"#fff":"#1A1A2A"}}>{cell.day}</span>{emoji?<span style={{fontSize:9}}>{emoji}</span>:null}</div>;
+                })}
+              </div>
+              <div style={{fontSize:10,color:"#AAAABC",textAlign:"center",paddingTop:8}}>← 日付をタップ → 記録ページへ</div>
+            </div>
+          </div>
+        )}
+
+        {tab==="log" && (
+          <div>
+            <div style={{padding:"14px 12px 10px",borderBottom:"1px solid #2E2E3E"}}>
+              <div style={{fontSize:22,fontWeight:"bold"}}>トレーニング記録</div>
+              <div style={{fontSize:11,color:muted,marginTop:2}}>{logDate?new Date(logDate+"T00:00:00").toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"long"}):""}</div>
+            </div>
+            <div style={{padding:"12px"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9,marginBottom:10}}>
+                <div style={{display:"flex",flexDirection:"column",gap:5}}><label style={{fontSize:10,fontWeight:700,color:muted}}>日付</label><input type="date" style={fi} value={logDate} onChange={function(e){setLogDate(e.target.value);}}/></div>
+                <div style={{display:"flex",flexDirection:"column",gap:5}}><label style={{fontSize:10,fontWeight:700,color:muted}}>部位</label><select style={fi} value={logPart} onChange={function(e){handlePart(e.target.value);}}>{Object.keys(PN).map(function(k){return <option key={k} value={k}>{PN[k]}</option>;})}</select></div>
+              </div>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:10,fontWeight:700,color:muted,display:"block",marginBottom:5}}>達成感</label>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                  {Object.keys(ST).map(function(k){
+                    var v=ST[k],sel=logStatus===k;
+                    return <button key={k} onClick={function(){setLogStatus(sel?null:k);}} style={{padding:"8px 4px",borderRadius:4,border:"1px solid "+(sel?v.c:"#2E2E3E"),cursor:"pointer",fontSize:11,fontWeight:700,background:sel?v.c+"18":bg3,color:sel?v.c:muted,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}><span style={{fontSize:18}}>{v.e}</span><span>{v.l}</span></button>;
+                  })}
+                </div>
+              </div>
+
+              {exs.map(function(ex,ei){
+                var list=DB[logPart]||[];
+                var info=list.find(function(x){return x.n===ex.name;});
+                var col=PC[logPart]||lime;
+                var svgHtml=getMuscSVG(ex.name,col);
+                return(
+                  <div key={ex.id} style={{background:bg2,border:"1px solid #2E2E3E",borderRadius:6,marginBottom:10,overflow:"hidden"}}>
+                    <div style={{padding:"8px 10px",background:steel,borderBottom:"1px solid #2E2E3E",display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{fontSize:18,color:lime,fontWeight:"bold",width:20,flexShrink:0}}>{ei+1}</div>
+                      <div style={{flex:1,display:"flex",gap:5,alignItems:"center"}}>
+                        {!ex.custom
+                          ? <select style={Object.assign({},fi,{padding:"5px 8px",fontSize:13,fontWeight:600})} value={ex.name} onChange={function(e){if(e.target.value==="__custom__")updEx(ex.id,"custom",true);else updEx(ex.id,"name",e.target.value);}}>
+                              {list.map(function(x){return <option key={x.n} value={x.n}>{x.n}</option>;})}
+                              <option value="__custom__">＋ カスタム種目</option>
+                            </select>
+                          : <input style={Object.assign({},fi,{padding:"5px 8px",fontSize:13,fontWeight:600})} value={ex.name} onChange={function(e){updEx(ex.id,"name",e.target.value);}} placeholder="種目名を入力"/>
+                        }
+                      </div>
+                      <button onClick={function(){setExs(function(p){return p.filter(function(e){return e.id!==ex.id;});});}} style={{background:"transparent",border:"1px solid #2E2E3E",color:muted,width:26,height:26,borderRadius:4,cursor:"pointer",fontSize:12,flexShrink:0}}>✕</button>
+                    </div>
+
+                    {!ex.custom&&info&&(
+                      <div style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 11px",background:"#0A0A12",borderBottom:"1px solid #2E2E3E"}}>
+                        <div style={{width:70,height:122,flexShrink:0}} dangerouslySetInnerHTML={{__html:svgHtml}}/>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:800,color:"#F2F2F2",marginBottom:4}}>{ex.name}</div>
+                          <div style={{fontSize:10,fontWeight:700,color:col,marginBottom:2}}>主働筋</div>
+                          <div style={{fontSize:12,color:off,marginBottom:3}}>{info.p}</div>
+                          {info.s!=="—"&&<div style={{fontSize:11,color:"#555568",marginBottom:4}}>補助筋: {info.s}</div>}
+                          <div style={{fontSize:11,color:muted,lineHeight:1.5,borderLeft:"2px solid "+col,paddingLeft:6}}>{info.t}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{display:"flex",gap:6,padding:"6px 10px",borderBottom:"1px solid #2E2E3E",fontSize:10,fontWeight:700,color:muted}}>
+                      <span style={{width:22}}>SET</span><span style={{width:62,textAlign:"center"}}>kg</span><span style={{width:62,textAlign:"center"}}>reps</span><span style={{width:48,textAlign:"center"}}>RPE</span>
+                    </div>
+                    {ex.sets.map(function(set,si){
+                      return(
+                        <div key={si} style={{display:"flex",gap:6,alignItems:"center",padding:"6px 10px",borderBottom:"1px solid rgba(46,46,62,.5)"}}>
+                          <span style={{fontSize:16,color:muted,width:22,flexShrink:0,fontWeight:"bold"}}>{si+1}</span>
+                          {[["w","kg",62],["r","reps",62],["rpe","—",48]].map(function(f){
+                            return <input key={f[0]} type="number" step="0.5" style={{background:steel,border:"1px solid #2E2E3E",color:"#F2F2F2",padding:"5px",borderRadius:4,fontSize:16,fontWeight:"bold",width:f[2],textAlign:"center",outline:"none"}} value={set[f[0]]} placeholder={f[1]} onChange={function(e){updSet(ex.id,si,f[0],e.target.value);}}/>;
+                          })}
+                          <button onClick={function(){updSet(ex.id,si,"done",!set.done);}} style={{width:24,height:24,borderRadius:4,border:"1px solid #2E2E3E",background:set.done?"#44CC88":"transparent",cursor:"pointer",fontSize:11,color:set.done?"#0F0F14":"transparent",flexShrink:0}}>✓</button>
+                          <button onClick={function(){setExs(function(p){return p.map(function(e){return e.id===ex.id?Object.assign({},e,{sets:e.sets.filter(function(_,i){return i!==si;})}):e;});});}} style={{background:"transparent",border:"none",color:muted,cursor:"pointer",fontSize:12}}>✕</button>
+                        </div>
+                      );
+                    })}
+                    <div style={{padding:"6px 10px",borderTop:"1px solid #2E2E3E"}}>
+                      <button onClick={function(){setExs(function(p){return p.map(function(e){return e.id===ex.id?Object.assign({},e,{sets:e.sets.concat([mkSet()])}):e;});});}} style={{padding:"5px 10px",borderRadius:4,border:"1px dashed #3A3A50",background:"transparent",color:off,fontSize:11,fontWeight:600,cursor:"pointer"}}>＋ セット追加</button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <button onClick={function(){setExs(function(p){return p.concat([mkEx(exCtr,logPart)]);});setExCtr(function(c){return c+1;});}} style={{width:"100%",padding:10,marginBottom:10,background:"transparent",color:lime,border:"1px dashed rgba(200,240,32,.35)",borderRadius:6,cursor:"pointer",fontSize:13,fontWeight:700}}>＋ 種目を追加</button>
+              <label style={{fontSize:10,fontWeight:700,color:muted,display:"block",marginBottom:5}}>メモ</label>
+              <textarea style={Object.assign({},fi,{resize:"vertical",minHeight:60,marginBottom:12})} value={logNotes} onChange={function(e){setLogNotes(e.target.value);}} placeholder="体調・フォームメモ・次回の目標など..."/>
+              <div style={{display:"flex",gap:9,marginBottom:36}}>
+                <button onClick={function(){if(window.confirm("クリアしますか？")){setExs([mkEx(1,logPart)]);setExCtr(2);setLogStatus(null);setLogNotes("");}}} style={{padding:"11px 14px",background:"transparent",border:"1px solid #2E2E3E",borderRadius:4,cursor:"pointer",color:muted,fontSize:14,fontWeight:600}}>クリア</button>
+                <button onClick={doSave} style={{flex:1,padding:11,background:lime,color:"#0F0F14",border:"none",borderRadius:4,cursor:"pointer",fontSize:14,fontWeight:800}}>保存する</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab==="ib" && (
+          <div>
+            <div style={{padding:"14px 12px 10px",borderBottom:"1px solid #2E2E3E"}}>
+              <div style={{fontSize:22,fontWeight:"bold"}}>INBODY 計測</div>
+              <div style={{fontSize:11,color:muted,marginTop:2}}>体の変化を時系列で確認しましょう</div>
+            </div>
+            <div style={{padding:"12px"}}>
+              <div style={{background:bg2,border:"1px solid #2E2E3E",borderRadius:6,padding:12,marginBottom:14}}>
+                <div style={{fontSize:18,fontWeight:"bold",marginBottom:9}}>新しい計測を追加</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                  <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:10,fontWeight:700,color:muted}}>日付</label><input type="date" style={fi} value={ibF.date} onChange={function(e){setIbF(function(f){return Object.assign({},f,{date:e.target.value});});}}/></div>
+                  <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:10,fontWeight:700,color:muted}}>体重(kg)</label><input type="number" step="0.1" style={fi} value={ibF.weight} onChange={function(e){setIbF(function(f){return Object.assign({},f,{weight:e.target.value});});}} placeholder="55.0"/></div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7,marginBottom:8}}>
+                  {[["muscle","筋肉量(kg)","24.0"],["fat","体脂肪量(kg)","12.0"],["fatpct","体脂肪率(%)","21.0"]].map(function(x){
+                    var k=x[0],l=x[1],ph=x[2];
+                    return <div key={k} style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:10,fontWeight:700,color:muted}}>{l}</label><input type="number" step="0.1" style={fi} value={ibF[k]} onChange={function(e){setIbF(function(f){return Object.assign({},f,{[k]:e.target.value});});}} placeholder={ph}/></div>;
+                  })}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7,marginBottom:10}}>
+                  {[["bmi","BMI","21.5"],["bmr","基礎代謝","1200"],["vis","内臓脂肪","4.0"]].map(function(x){
+                    var k=x[0],l=x[1],ph=x[2];
+                    return <div key={k} style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:10,fontWeight:700,color:muted}}>{l}</label><input type="number" step="0.1" style={fi} value={ibF[k]} onChange={function(e){setIbF(function(f){return Object.assign({},f,{[k]:e.target.value});});}} placeholder={ph}/></div>;
+                  })}
+                </div>
+                <button onClick={function(){
+                  if(!ibF.date){showToast("日付を入力してください");return;}
+                  var e=Object.assign({},ibF);
+                  ["weight","muscle","fat","fatpct","bmi","bmr","vis"].forEach(function(k){e[k]=parseFloat(ibF[k])||null;});
+                  var next=inbody.filter(function(x){return x.date!==ibF.date;}).concat([e]).sort(function(a,b){return a.date.localeCompare(b.date);});
+                  setInbody(next);setIbF({date:toDS(new Date()),weight:"",muscle:"",fat:"",fatpct:"",bmi:"",bmr:"",vis:""});
+                  showToast("✓ 計測結果を保存しました");
+                }} style={{width:"100%",padding:10,background:lime,color:"#0F0F14",border:"none",borderRadius:4,cursor:"pointer",fontSize:13,fontWeight:800}}>計測結果を保存</button>
+              </div>
+              {[{title:"体重の推移",key:"weight",col:"#C8F020"},{title:"筋肉量",key:"muscle",col:"#6EE6A0"},{title:"体脂肪率(%)",key:"fatpct",col:"#80BCFF"}].map(function(item){
+                var title=item.title,key=item.key,col=item.col;
+                var pts=inbody.filter(function(e){return e[key]!=null;});
+                if(!pts.length)return null;
+                var vals=pts.map(function(e){return e[key];});
+                var mn=Math.min.apply(null,vals),mx=Math.max.apply(null,vals),rng=mx-mn||1;
+                var W=270,H=70,pad=8;
+                var mp=pts.map(function(e,i,arr){return{x:pad+(i/Math.max(arr.length-1,1))*(W-pad*2),y:H-pad-((e[key]-mn)/rng)*(H-pad*2),v:e[key]};});
+                var pd2=mp.map(function(p,i){return(i===0?"M":"L")+" "+p.x+" "+p.y;}).join(" ");
+                var last=mp[mp.length-1];
+                return(
+                  <div key={key} style={{background:bg2,border:"1px solid #2E2E3E",borderRadius:6,padding:12,marginBottom:10}}>
+                    <div style={{fontSize:16,fontWeight:"bold",marginBottom:8}}>{title}</div>
+                    <svg width="100%" viewBox={"0 0 "+W+" "+H} preserveAspectRatio="none" style={{display:"block"}}>
+                      <path d={pd2} stroke={col} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d={pd2+" L "+last.x+" "+H+" L "+mp[0].x+" "+H+" Z"} fill={col} opacity=".1"/>
+                      {mp.map(function(p,i){return <g key={i}><circle cx={p.x} cy={p.y} r="4" fill={col}/>{(i===0||i===mp.length-1)?<text x={p.x} y={p.y-8} textAnchor="middle" fontSize="9" fill={col}>{p.v}</text>:null}</g>;})}
+                    </svg>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:muted,marginTop:3}}><span>{pts[0].date}</span><span>{pts[pts.length-1].date}</span></div>
+                  </div>
+                );
+              })}
+              {inbody.length===0&&<div style={{textAlign:"center",padding:"30px 20px",color:muted,fontSize:13}}>計測結果を入力するとグラフが表示されます</div>}
+            </div>
+          </div>
+        )}
+
+        {tab==="hist" && (
+          <div>
+            <div style={{padding:"14px 12px 10px",borderBottom:"1px solid #2E2E3E"}}><div style={{fontSize:22,fontWeight:"bold"}}>トレーニング履歴</div></div>
+            <div style={{padding:"12px"}}>
+              {Object.keys(workouts).sort(function(a,b){return b.localeCompare(a);}).filter(function(ds){var w=workouts[ds];return w&&w.exercises&&w.exercises.length;}).length===0
+                ? <div style={{textAlign:"center",padding:"40px 20px",color:muted}}><div style={{fontSize:38,marginBottom:10,opacity:.4}}>🏋️</div><div style={{fontSize:13,lineHeight:1.7}}>まだ記録がありません。<br/>カレンダーの日付をタップして記録しましょう。</div></div>
+                : Object.keys(workouts).sort(function(a,b){return b.localeCompare(a);}).map(function(ds){
+                    var w=workouts[ds];if(!w||!w.exercises||!w.exercises.length)return null;
+                    var d=new Date(ds+"T00:00:00");
+                    var lbl=d.toLocaleDateString("ja-JP",{month:"long",day:"numeric",weekday:"short"});
+                    var col=PC[w.part]||lime;
+                    var stt=w.status&&ST[w.status]?ST[w.status].e:"";
+                    return(
+                      <div key={ds} onClick={function(){goLog(ds);}} style={{background:bg2,border:"1px solid #2E2E3E",borderRadius:6,marginBottom:9,overflow:"hidden",cursor:"pointer"}}>
+                        <div style={{padding:"9px 12px",background:steel,borderBottom:"1px solid #2E2E3E",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                          <div><div style={{fontSize:15,fontWeight:"bold"}}>{stt} {lbl}</div>{w.part&&<div style={{fontSize:11,color:muted,marginTop:1}}>{PN[w.part]}</div>}</div>
+                          <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:3,background:col+"22",color:col,border:"1px solid "+col+"44"}}>{w.exercises.length}種目</span>
+                        </div>
+                        <div style={{padding:"8px 12px"}}>
+                          {w.exercises.map(function(ex,i){
+                            var maxW=Math.max.apply(null,(ex.sets||[]).map(function(s){return parseFloat(s.w)||0;}));
+                            return <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid rgba(46,46,62,.35)",fontSize:12}}><span style={{fontWeight:600}}>{ex.name}</span><span style={{color:muted}}>{ex.sets&&ex.sets.length}セット · 最大{maxW}kg</span></div>;
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })
+              }
+            </div>
+          </div>
+        )}
+      </div>
+
+      {toast&&<div style={{position:"fixed",bottom:18,left:12,right:12,background:lime,color:"#0F0F14",padding:"11px 14px",borderRadius:6,fontWeight:800,fontSize:14,textAlign:"center",zIndex:300}}>{toast}</div>}
+    </div>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(App));
+</script>
+</body>
+</html>
